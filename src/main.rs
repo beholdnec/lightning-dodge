@@ -26,19 +26,6 @@ use gfx::*;
 type Vec2f = Vector2<f32>;
 type Vec2i = Vector2<i32>;
 
-const METATILE_WIDTH_IN_PIXELS: usize = 16;
-const METATILE_HEIGHT_IN_PIXELS: usize = 16;
-const X_METATILES: usize = nesppu::DISPLAY_WIDTH / METATILE_WIDTH_IN_PIXELS;
-const Y_METATILES: usize = nesppu::DISPLAY_HEIGHT / METATILE_HEIGHT_IN_PIXELS;
-
-// Metatiles are 16x16 pixels. Metatiles contain collision information.
-#[derive(Copy, Clone)]
-enum Metatile {
-    Blank,
-    Solid,
-}
-type MetatileArray = [[Metatile; X_METATILES]; Y_METATILES];
-
 enum CloudDirection {
     Left,
     Right,
@@ -75,7 +62,6 @@ struct App {
     gl: ogl::GlGraphics,
     ppu: Ppu,
     player_pos: Vec2f,
-    metatiles: MetatileArray,
     clouds: Vec<Cloud>,
     precipitation: Vec<Precipitation>,
     caught_rain: u32,
@@ -95,7 +81,8 @@ const RAINFALL_SPEED: f32 = 1.0;
 const CLOUD_SPEED: f32 = 1.0;
 const CLOUD_LEFT_BOUND: f32 = 8.0;
 const CLOUD_RIGHT_BOUND: f32 = 228.0;
-const GROUND_Y: f32 = ((Y_METATILES - 2) * METATILE_HEIGHT_IN_PIXELS) as f32;
+const GROUND_Y_TILE: usize = nesppu::DISPLAY_HEIGHT_IN_TILES - 4;
+const GROUND_Y: f32 = (GROUND_Y_TILE * nesppu::TILE_HEIGHT_IN_PIXELS) as f32;
 const PLAYER_Y: f32 = GROUND_Y - 8.0;
 const PLAYER_SPEED: f32 = 2.0;
 const NEW_CLOUD_SCORE: u32 = 5;
@@ -123,7 +110,6 @@ impl App {
             gl: ogl::GlGraphics::new(opengl),
             ppu: Default::default(),
             player_pos: Vec2f::new(nesppu::DISPLAY_WIDTH as f32 / 2.0, PLAYER_Y),
-            metatiles: [[Metatile::Blank; X_METATILES]; Y_METATILES],
             clouds: Vec::new(),
             precipitation: Vec::new(),
             caught_rain: 0,
@@ -140,7 +126,6 @@ impl App {
     fn reset(&mut self) {
         self.ppu = Default::default();
         self.player_pos = Vec2f::new(nesppu::DISPLAY_WIDTH as f32 / 2.0, PLAYER_Y);
-        self.metatiles = [[Metatile::Blank; X_METATILES]; Y_METATILES];
         self.clouds = Vec::new();
         self.precipitation = Vec::new();
         self.caught_rain = 0;
@@ -172,23 +157,18 @@ impl App {
         self.ppu.set_sprite_colors(LIGHTNING_ATTRIB, LIGHTNING_COLOR_SETS[self.lightning_color_set]);
         self.ppu.set_sprite_colors(RAIN_ATTRIB, RAIN_COLORS);
 
-        // Draw ground on bottom two rows
-        for y in Y_METATILES-2..Y_METATILES {
-            for x in 0..X_METATILES {
-                self.metatiles[y][x] = Metatile::Solid;
-                // Draw ground tiles in the 2x2-tile area covered by each metatile
-                for sy in 0..2 {
-                    for sx in 0..2 {
-                        self.ppu.set_tile(x*2+sx, y*2+sy, GROUND_PATTERN_NAME);
-                        self.ppu.set_attribute(x*2+sx, y*2+sy, NORMAL_GROUND_ATTRIB);
-                    }
-                }
+        // Draw ground
+        for y in GROUND_Y_TILE+1..nesppu::DISPLAY_HEIGHT_IN_TILES {
+            for x in 0..nesppu::DISPLAY_WIDTH_IN_TILES {
+                self.ppu.set_tile(x, y, GROUND_PATTERN_NAME);
+                self.ppu.set_attribute(x, y, NORMAL_GROUND_ATTRIB);
             }
         }
+
         // Draw top of ground
         for x in 0..nesppu::DISPLAY_WIDTH_IN_TILES {
-            self.ppu.set_tile(x, (Y_METATILES-2) * 2, GROUND_TOP_PATTERN_NAME);
-            self.ppu.set_attribute(x, (Y_METATILES-2) * 2, NORMAL_GROUND_ATTRIB);
+            self.ppu.set_tile(x, GROUND_Y_TILE, GROUND_TOP_PATTERN_NAME);
+            self.ppu.set_attribute(x, GROUND_Y_TILE, NORMAL_GROUND_ATTRIB);
         }
 
         // Spawn the first cloud
