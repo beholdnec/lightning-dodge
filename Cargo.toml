@@ -1,0 +1,6 @@
+[package]
+name = "lightning-dodge"
+version = "0.1.0"
+authors = ["N.E.C. <beholdnec@gmail.com>"]
+
+[dependencies]
