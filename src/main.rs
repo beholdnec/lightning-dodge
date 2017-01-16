@@ -74,7 +74,6 @@ struct App {
 // - max sprite limit
 // - tuning
 // - fancier player graphics and collision detection
-// - die when hit by lightning
 const PRECIPITATION_PERIOD: u32 = 1 * 60;
 const RAINSPLASH_TIME: u32 = 60 / 2;
 const RAINFALL_SPEED: f32 = 1.0;
