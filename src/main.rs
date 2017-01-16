@@ -441,7 +441,7 @@ impl App {
 }
 
 fn main() {
-    let opengl = ogl::OpenGL::V3_2;
+    let opengl = ogl::OpenGL::V2_1;
 
     let mut window: Window = WindowSettings::new(
             "Lightning Dodge",
