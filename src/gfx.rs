@@ -223,13 +223,13 @@ pub const PLAYER_TOP_PATTERN_CHARS: CharPattern = [
 pub const PLAYER_PATTERN_NAME: u8 = 255;
 pub const PLAYER_PATTERN_CHARS: CharPattern = [
     *b"........",
-    *b"........",
-    *b"..;..;..",
-    *b"........",
-    *b"..;..;..",
-    *b"...;;...",
-    *b"........",
-    *b"##   ## ",
+    *b" ...... ",
+    *b" .;..;. ",
+    *b" ...... ",
+    *b" .;..;. ",
+    *b" ..;;.. ",
+    *b" ...... ",
+    *b" ##  ## ",
 ];
 
 pub const PLAYER_ATTRIB: u8 = 0;
