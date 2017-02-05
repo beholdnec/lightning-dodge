@@ -61,6 +61,8 @@ struct DeathState {
 struct App {
     gl: ogl::GlGraphics,
     ppu: Ppu,
+    ppu_image: RgbaImage,
+    ppu_texture: ogl::Texture,
     player_pos: Vec2f,
     clouds: Vec<Cloud>,
     precipitation: Vec<Precipitation>,
@@ -105,9 +107,15 @@ fn random_f32(lo: f32, hi: f32) -> f32 {
 
 impl App {
     fn new(opengl: glutin_window::OpenGL) -> Self {
+        let mut ppu_texture_settings = ogl::TextureSettings::new();
+        ppu_texture_settings.set_filter(ogl::Filter::Nearest);
+        let ppu_image = RgbaImage::new(nesppu::DISPLAY_WIDTH as u32, nesppu::DISPLAY_HEIGHT as u32);
+        let ppu_texture = ogl::Texture::from_image(&ppu_image, &ppu_texture_settings);
         let mut this = App {
             gl: ogl::GlGraphics::new(opengl),
             ppu: Default::default(),
+            ppu_image: ppu_image,
+            ppu_texture: ppu_texture,
             player_pos: Vec2f::new(nesppu::DISPLAY_WIDTH as f32 / 2.0, PLAYER_Y),
             clouds: Vec::new(),
             precipitation: Vec::new(),
@@ -423,19 +431,17 @@ impl App {
     }
 
     fn render(&mut self, args: &RenderArgs) {
-        let image = Image::new().rect([0.0, 0.0, args.width as f64, args.height as f64]);
-
-        let ppu = &self.ppu; // TODO: ask an expert why this works, while referencing self.ppu
-                             //       in the closure below doesn't work.
+        // XXX: WHY do I have to borrow these variables out here? Why can't I just use them
+        //      directly in the closure?
+        let ppu = &self.ppu;
+        let mut ppu_image = &mut self.ppu_image; // XXX: WHY do I have to say "let mut" here...
+        let ppu_texture = &mut self.ppu_texture; //     <- ...but not here?
 
         self.gl.draw(args.viewport(), |c, gl| {
-            let mut ppu_image = RgbaImage::new(nesppu::DISPLAY_WIDTH as u32, nesppu::DISPLAY_HEIGHT as u32);
             ppu.draw_image(&mut ppu_image);
-            let mut texture_settings = ogl::TextureSettings::new();
-            texture_settings.set_filter(ogl::Filter::Nearest);
-            // TODO: update a texture in-place instead of creating a new one every frame.
-            let texture = ogl::Texture::from_image(&ppu_image, &texture_settings);
-            image.draw(&texture, &Default::default(), c.transform, gl);
+            ppu_texture.update(ppu_image);
+            let image_rect = Image::new().rect([0.0, 0.0, args.width as f64, args.height as f64]);
+            image_rect.draw(ppu_texture, &Default::default(), c.transform, gl);
         });
     }
 }

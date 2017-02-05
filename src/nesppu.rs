@@ -115,7 +115,7 @@ pub fn set_pixel_in_pattern(pattern: &mut [u8; PATTERN_SIZE_IN_BYTES], x: usize,
 
 impl Ppu {
     pub fn draw_image(&self, image: &mut RgbaImage) {
-        for dy in 0..DISPLAY_HEIGHT {
+        for (dy, line_chunk) in (0..DISPLAY_HEIGHT).zip(image.chunks_mut(4 * DISPLAY_WIDTH)) {
             let world_y = dy + self.scroll_y as usize;
             let tile_y = world_y / 8;
             let subtile_y = world_y % 8;
@@ -139,7 +139,7 @@ impl Ppu {
             let sprites_on_line = sprites_on_line;
             let num_sprites_on_line = num_sprites_on_line;
 
-            for dx in 0..DISPLAY_WIDTH {
+            for (dx, rgba_chunk) in (0..DISPLAY_WIDTH).zip(line_chunk.chunks_mut(4)) {
                 let world_x = dx + self.scroll_x as usize;
                 let tile_x = world_x / 8;
                 let subtile_x = world_x % 8;
@@ -156,9 +156,9 @@ impl Ppu {
                         if pixel != 0 { // Color 0 is transparent
                             // Draw sprite
                             let color = self.get_sprite_color(pixel, sprite.attrib);
-                            image.put_pixel(dx as u32, dy as u32, get_color_rgba(color));
+                            let rgba = get_color_rgba(color);
+                            rgba_chunk.copy_from_slice(&rgba.data[0..4]);
                             sprite_drawn = true;
-                            break;
                         }
                     }
                 }
@@ -170,7 +170,8 @@ impl Ppu {
                     let pixel = get_pixel_from_pattern(&pattern, subtile_x, subtile_y);
                     let attrib = self.get_attribute(tile_x, tile_y);
                     let color = self.get_bg_color(pixel, attrib);
-                    image.put_pixel(dx as u32, dy as u32, get_color_rgba(color));
+                    let rgba = get_color_rgba(color);
+                    rgba_chunk.copy_from_slice(&rgba.data[0..4]);
                 }
             }
         }
