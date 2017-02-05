@@ -92,13 +92,11 @@ impl Default for Ppu {
 const NTSC_PALETTE: &'static [u8; 64 * 3] = include_bytes!("ntscpalette.pal");
 
 fn get_color_rgba(color: u8) -> Rgba<u8> {
+    let i = 3 * (color & 0x3F) as usize;
+    let mut rgb: [u8; 3] = [0; 3];
+    rgb.copy_from_slice(&NTSC_PALETTE[i .. i + 3]);
     Rgba::<u8> {
-        data: [
-            NTSC_PALETTE[3 * (color & 0x3F) as usize],
-            NTSC_PALETTE[3 * (color & 0x3F) as usize + 1],
-            NTSC_PALETTE[3 * (color & 0x3F) as usize + 2],
-            255
-        ]
+        data: [rgb[0], rgb[1], rgb[2], 255]
     }
 }
 
@@ -144,6 +142,7 @@ impl Ppu {
                 let tile_x = world_x / 8;
                 let subtile_x = world_x % 8;
 
+                let mut palette_index = 0;
                 let mut sprite_drawn = false;
 
                 for i in 0..num_sprites_on_line {
@@ -155,10 +154,9 @@ impl Ppu {
                         let pixel = get_pixel_from_pattern(&sprite_pattern, sprite_col, sprite_row);
                         if pixel != 0 { // Color 0 is transparent
                             // Draw sprite
-                            let color = self.get_sprite_color(pixel, sprite.attrib);
-                            let rgba = get_color_rgba(color);
-                            rgba_chunk.copy_from_slice(&rgba.data[0..4]);
+                            palette_index = self.get_sprite_color(pixel, sprite.attrib);
                             sprite_drawn = true;
+                            break;
                         }
                     }
                 }
@@ -169,10 +167,11 @@ impl Ppu {
                     let pattern = self.get_pattern(tile);
                     let pixel = get_pixel_from_pattern(&pattern, subtile_x, subtile_y);
                     let attrib = self.get_attribute(tile_x, tile_y);
-                    let color = self.get_bg_color(pixel, attrib);
-                    let rgba = get_color_rgba(color);
-                    rgba_chunk.copy_from_slice(&rgba.data[0..4]);
+                    palette_index = self.get_bg_color(pixel, attrib);
                 }
+
+                let rgba = get_color_rgba(palette_index);
+                rgba_chunk.copy_from_slice(&rgba.data);
             }
         }
     }

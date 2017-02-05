@@ -11,3 +11,6 @@ piston2d-opengl_graphics = "0.37.0"
 image = "0.12.0"
 cgmath = "0.12.0"
 rand = "0.3.0"
+
+[profile.release]
+panic = "abort"
