@@ -4,7 +4,7 @@
 
 extern crate image;
 
-use image::{Rgba, RgbaImage};
+use image::{Rgba, RgbaImage, Pixel};
 
 // FIXME: NTSC hardware had only 224 lines. The top and bottom 8 pixels were cut off. (??? TODO: verify)
 pub const DISPLAY_WIDTH: usize = 256;
@@ -75,7 +75,7 @@ pub struct Ppu {
 
 impl Default for Ppu {
     fn default() -> Self {
-        let mut this = Ppu {
+        Ppu {
             tilemap: [0; TILEMAP_SIZE_IN_BYTES],
             attrmap: [0; ATTRMAP_SIZE_IN_BYTES],
             pattern_table: [0; PATTERN_TABLE_SIZE_IN_BYTES],
@@ -83,21 +83,15 @@ impl Default for Ppu {
             sprites: [Sprite::default(); NUM_SPRITES],
             scroll_x: 0,
             scroll_y: 0,
-        };
-
-        this
+        }
     }
 }
 
 const NTSC_PALETTE: &'static [u8; 64 * 3] = include_bytes!("ntscpalette.pal");
 
 fn get_color_rgba(color: u8) -> Rgba<u8> {
-    let i = 3 * (color & 0x3F) as usize;
-    let mut rgb: [u8; 3] = [0; 3];
-    rgb.copy_from_slice(&NTSC_PALETTE[i .. i + 3]);
-    Rgba::<u8> {
-        data: [rgb[0], rgb[1], rgb[2], 255]
-    }
+    let rgb = NTSC_PALETTE.chunks_exact(3).nth((color & 0x3f) as usize).unwrap();
+    Rgba::<u8>::from([rgb[0], rgb[1], rgb[2], 255])
 }
 
 
@@ -137,7 +131,7 @@ impl Ppu {
             let sprites_on_line = sprites_on_line;
             let num_sprites_on_line = num_sprites_on_line;
 
-            for (dx, rgba_chunk) in (0..DISPLAY_WIDTH).zip(line_chunk.chunks_mut(4)) {
+            for (dx, rgba_chunk) in (0..DISPLAY_WIDTH).zip(line_chunk.chunks_exact_mut(4)) {
                 let world_x = dx + self.scroll_x as usize;
                 let tile_x = world_x / 8;
                 let subtile_x = world_x % 8;
@@ -171,7 +165,7 @@ impl Ppu {
                 }
 
                 let rgba = get_color_rgba(palette_index);
-                rgba_chunk.copy_from_slice(&rgba.data);
+                rgba_chunk.copy_from_slice(&rgba.channels());
             }
         }
     }

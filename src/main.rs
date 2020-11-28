@@ -1,4 +1,5 @@
 extern crate piston;
+extern crate piston_window;
 extern crate graphics;
 extern crate glutin_window;
 extern crate opengl_graphics;
@@ -9,6 +10,7 @@ extern crate rand;
 use piston::window::WindowSettings;
 use piston::event_loop::*;
 use piston::input::*;
+use piston_window::*;
 use glutin_window::GlutinWindow as Window;
 use graphics::{Image, clear, rectangle, Transformed};
 use graphics::draw_state::DrawState;
@@ -92,7 +94,7 @@ const DEATH_TIME: u32 = 4 * 60;
 
 // Returns a bool with a 1/N chance of being true.
 fn random_bool(n: u32) -> bool {
-    rand::thread_rng().gen_weighted_bool(n)
+    rand::thread_rng().gen_ratio(1, n)
 }
 
 // Returns a random u32 in the open range [lo, hi).
@@ -440,23 +442,24 @@ impl App {
         self.gl.draw(args.viewport(), |c, gl| {
             ppu.draw_image(&mut ppu_image);
             ppu_texture.update(ppu_image);
-            let image_rect = Image::new().rect([0.0, 0.0, args.width as f64, args.height as f64]);
+            let image_rect = Image::new().rect([0.0, 0.0, args.window_size[0], args.window_size[1]]);
             image_rect.draw(ppu_texture, &Default::default(), c.transform, gl);
         });
     }
 }
 
 fn main() {
-    let opengl = ogl::OpenGL::V2_1;
+    let opengl = ogl::OpenGL::V3_2;
 
-    let mut window: Window = WindowSettings::new(
+    let glutin_window: Window = WindowSettings::new(
             "Lightning Dodge",
             [1024, 768]
         )
-        .opengl(opengl)
         .exit_on_esc(true)
         .build()
         .unwrap();
+
+    let window: PistonWindow = PistonWindow::new(opengl, 1, glutin_window);
 
     let mut app = App::new(opengl);
 
@@ -465,8 +468,8 @@ fn main() {
     let mut up_state = false;
     let mut down_state = false;
 
-    let mut events = window.events().max_fps(60).ups(60);
-    while let Some(e) = events.next(&mut window) {
+    let mut events = window.max_fps(60).ups(60);
+    while let Some(e) = events.next() {
         if let Some(r) = e.render_args() {
             app.render(&r);
         }
