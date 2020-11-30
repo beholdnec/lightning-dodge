@@ -238,42 +238,37 @@ impl App {
 
         // Simulate clouds
         for cn in 0..self.clouds.len() {
-            // FIXME: it's unfortunate that I have to type self.clouds[cn] every time I want to
-            //        to modify the cloud's state, but I don't know any other way to make the
-            //        borrow checker happy.
-            //        If I make a mut reference to the current cloud, it considers "self" to be
-            //        borrowed, which interferes with self.spawn_lightning and self.spawn_raindrop.
-            self.clouds[cn].pos.x += match self.clouds[cn].direction {
-                CloudDirection::Left => -self.clouds[cn].speed,
-                CloudDirection::Right => self.clouds[cn].speed,
+            let mut cloud = &mut self.clouds[cn];
+
+            cloud.pos.x += match cloud.direction {
+                CloudDirection::Left => -cloud.speed,
+                CloudDirection::Right => cloud.speed,
             };
 
-            if self.clouds[cn].pos.x < CLOUD_LEFT_BOUND {
-                self.clouds[cn].pos.x = CLOUD_LEFT_BOUND;
-                self.clouds[cn].direction = CloudDirection::Right;
-            } else if self.clouds[cn].pos.x > CLOUD_RIGHT_BOUND {
-                self.clouds[cn].pos.x = CLOUD_RIGHT_BOUND;
-                self.clouds[cn].direction = CloudDirection::Left;
+            if cloud.pos.x < CLOUD_LEFT_BOUND {
+                cloud.pos.x = CLOUD_LEFT_BOUND;
+                cloud.direction = CloudDirection::Right;
+            } else if cloud.pos.x > CLOUD_RIGHT_BOUND {
+                cloud.pos.x = CLOUD_RIGHT_BOUND;
+                cloud.direction = CloudDirection::Left;
             }
 
-            self.ppu.set_sprite(sprite_index, self.clouds[cn].pos.x as i32, self.clouds[cn].pos.y as i32,
+            self.ppu.set_sprite(sprite_index, cloud.pos.x as i32, cloud.pos.y as i32,
                                 CLOUD_LEFT_PATTERN_NAME, CLOUD_ATTRIB);
             sprite_index += 1;
-            self.ppu.set_sprite(sprite_index, self.clouds[cn].pos.x as i32 + 8, self.clouds[cn].pos.y as i32,
+            self.ppu.set_sprite(sprite_index, cloud.pos.x as i32 + 8, cloud.pos.y as i32,
                                 CLOUD_RIGHT_PATTERN_NAME, CLOUD_ATTRIB);
             sprite_index += 1;
 
             // Spawn new raindrops and/or lightning bolts
-            self.clouds[cn].timer += 1;
-            if self.clouds[cn].timer >= self.clouds[cn].precipitation_period {
-                self.clouds[cn].timer = 0;
-                if random_bool(self.clouds[cn].lightning_n) {
-                    let pos = self.clouds[cn].pos.clone();
+            cloud.timer += 1;
+            if cloud.timer >= cloud.precipitation_period {
+                cloud.timer = 0;
+                if random_bool(cloud.lightning_n) {
+                    let pos = cloud.pos;
                     self.spawn_lightning(pos);
-                    // FIXME: speaking of weird borrow checker restrictions, why can't I write this??
-                    // self.spawn_lightning(self.clouds[cn].pos.clone());
                 } else {
-                    let pos = self.clouds[cn].pos.clone();
+                    let pos = cloud.pos;
                     self.spawn_raindrop(pos);
                 }
             }
