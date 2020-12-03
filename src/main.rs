@@ -43,7 +43,6 @@ enum PrecipitationType {
 
 struct Precipitation {
     type_: PrecipitationType,
-    dead: bool,
     pos: Vec2f,
     timer: u32,
 }
@@ -200,7 +199,6 @@ impl App {
     fn spawn_lightning(&mut self, pos: Vec2f) {
         self.precipitation.push(Precipitation {
             type_: PrecipitationType::Lightning,
-            dead: false,
             pos: pos,
             timer: 0,
         });
@@ -209,12 +207,16 @@ impl App {
     fn spawn_raindrop(&mut self, pos: Vec2f) {
         self.precipitation.push(Precipitation {
             type_: PrecipitationType::Rain,
-            dead: false,
             pos: pos,
             timer: 0,
         });
     }
 
+    // This function exists because self.precipitation.drain_filter cannot be run
+    // in advance_frame_playing. The only way to coax the borrow checker to accept
+    // this code is to split out the fields from App and pass them to this function.
+    //
+    // Thanks a lot, Rust.
     fn run_precipitation(
         precipitation: &mut Vec<Precipitation>,
         caught_rain: &mut u32,
@@ -278,11 +280,6 @@ impl App {
 
             return false;
         });
-
-        // Clean out dead precipitation
-        // self.precipitation.retain(|item| {
-        //     !item.dead
-        // });
 
         num_new_clouds
     }
