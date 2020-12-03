@@ -337,7 +337,7 @@ impl App {
         });
 
         // Spawn new clouds if score increased enough
-        for i in 0..num_new_clouds {
+        for _ in 0..num_new_clouds {
             let x = random_f32(CLOUD_LEFT_BOUND, CLOUD_RIGHT_BOUND);
             let y = random_f32(10.0, 60.0);
             self.spawn_cloud(Vec2f::new(x, y));
@@ -355,26 +355,17 @@ impl App {
 
         self.draw_scorebar();
 
-        let mut please_reset = false;
+        let death_state = self.death_state.as_mut().unwrap();
 
-        {
-            let death_state = self.death_state.as_mut().unwrap();
-
-            if death_state.timer % 30 < 15 && death_state.timer < 2 * 60 {
-                self.ppu.set_common_bg_color(0x20);
-            } else {
-                self.ppu.set_common_bg_color(BACKGROUND_COLOR);
-            }
-
-            death_state.timer += 1;
-            if death_state.timer >= DEATH_TIME {
-                // Reset the game
-                // Note that I can't call self.reset here, as death_state is borrowed.
-                please_reset = true;
-            }
+        if death_state.timer % 30 < 15 && death_state.timer < 2 * 60 {
+            self.ppu.set_common_bg_color(0x20);
+        } else {
+            self.ppu.set_common_bg_color(BACKGROUND_COLOR);
         }
 
-        if please_reset {
+        death_state.timer += 1;
+        if death_state.timer >= DEATH_TIME {
+            // Reset the game
             self.reset();
         }
     }
