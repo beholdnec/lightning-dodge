@@ -1,3 +1,5 @@
+#![feature(drain_filter)]
+
 extern crate piston;
 extern crate piston_window;
 extern crate graphics;
@@ -213,6 +215,78 @@ impl App {
         });
     }
 
+    fn run_precipitation(
+        precipitation: &mut Vec<Precipitation>,
+        caught_rain: &mut u32,
+        death_state: &mut Option<DeathState>,
+        player_pos: &mut Vec2f,
+        sprite_index: &mut usize,
+        ppu: &mut Ppu
+    ) -> u32 {
+        // Simulate precipitation
+        let mut num_new_clouds = 0;
+        precipitation.drain_filter(|p| {
+            if let PrecipitationType::RainSplash = p.type_ {
+                p.timer += 1;
+                if p.timer >= RAINSPLASH_TIME {
+                    return true;
+                }
+            } else {
+                p.pos.y += RAINFALL_SPEED;
+                if p.pos.y > GROUND_Y - 8.0 {
+                    p.pos.y = GROUND_Y - 8.0;
+                    if let PrecipitationType::Rain = p.type_ {
+                        p.type_ = PrecipitationType::RainSplash;
+                        p.timer = 0;
+                    } else {
+                        return true;
+                    }
+                }
+            }
+
+            // Check if player caught rain/lightning
+
+            // Compute player hitbox
+            let (pl, pt, pr, pb) = (player_pos.x, player_pos.y,
+                                    player_pos.x + 8.0, player_pos.y + 8.0);
+
+            // Compute rain hitbox (or hitPOINT, really.)
+            let (rx, ry) = (p.pos.x + 4.0, p.pos.y + 8.0);
+
+            // Check for hit
+            if rx >= pl && rx <= pr && ry >= pt && ry <= pb {
+                if let PrecipitationType::Rain = p.type_ {
+                    *caught_rain += 1;
+                    if *caught_rain % NEW_CLOUD_SCORE == 0 {
+                        num_new_clouds += 1;
+                    }
+                    return true;
+                } else if let PrecipitationType::Lightning = p.type_ {
+                    // NOTE: this isn't elegant, but setting DeathState will trigger the death
+                    //       sequence on the next frame.
+                    *death_state = Some(DeathState::default());
+                }
+            }
+
+            let (pattern_name, attrib) = match p.type_ {
+                PrecipitationType::Rain => (RAIN_PATTERN_NAME, RAIN_ATTRIB),
+                PrecipitationType::RainSplash => (RAINSPLASH_PATTERN_NAME, RAIN_ATTRIB),
+                PrecipitationType::Lightning => (LIGHTNING_PATTERN_NAME, LIGHTNING_ATTRIB),
+            };
+            ppu.set_sprite(*sprite_index, p.pos.x as i32, p.pos.y as i32, pattern_name, attrib);
+            *sprite_index += 1;
+
+            return false;
+        });
+
+        // Clean out dead precipitation
+        // self.precipitation.retain(|item| {
+        //     !item.dead
+        // });
+
+        num_new_clouds
+    }
+
     fn advance_frame_playing(&mut self, direction: Vec2f) {
         // Move the player
         self.player_pos.x += direction.x * PLAYER_SPEED;
@@ -274,67 +348,14 @@ impl App {
             }
         }
 
-        // Simulate precipitation
-        let mut num_new_clouds = 0;
-        for p in self.precipitation.iter_mut() {
-            if let PrecipitationType::RainSplash = p.type_ {
-                p.timer += 1;
-                if p.timer >= RAINSPLASH_TIME {
-                    p.dead = true;
-                    continue;
-                }
-            } else {
-                p.pos.y += RAINFALL_SPEED;
-                if p.pos.y > GROUND_Y - 8.0 {
-                    p.pos.y = GROUND_Y - 8.0;
-                    if let PrecipitationType::Rain = p.type_ {
-                        p.type_ = PrecipitationType::RainSplash;
-                        p.timer = 0;
-                    } else {
-                        p.dead = true;
-                        continue;
-                    }
-                }
-            }
-
-            // Check if player caught rain/lightning
-
-            // Compute player hitbox
-            let (pl, pt, pr, pb) = (self.player_pos.x, self.player_pos.y,
-                                    self.player_pos.x + 8.0, self.player_pos.y + 8.0);
-
-            // Compute rain hitbox (or hitPOINT, really.)
-            let (rx, ry) = (p.pos.x + 4.0, p.pos.y + 8.0);
-
-            // Check for hit
-            if rx >= pl && rx <= pr && ry >= pt && ry <= pb {
-                if let PrecipitationType::Rain = p.type_ {
-                    self.caught_rain += 1;
-                    if self.caught_rain % NEW_CLOUD_SCORE == 0 {
-                        num_new_clouds += 1;
-                    }
-                    p.dead = true;
-                    continue;
-                } else if let PrecipitationType::Lightning = p.type_ {
-                    // NOTE: this isn't elegant, but setting DeathState will trigger the death
-                    //       sequence on the next frame.
-                    self.death_state = Some(DeathState::default());
-                }
-            }
-
-            let (pattern_name, attrib) = match p.type_ {
-                PrecipitationType::Rain => (RAIN_PATTERN_NAME, RAIN_ATTRIB),
-                PrecipitationType::RainSplash => (RAINSPLASH_PATTERN_NAME, RAIN_ATTRIB),
-                PrecipitationType::Lightning => (LIGHTNING_PATTERN_NAME, LIGHTNING_ATTRIB),
-            };
-            self.ppu.set_sprite(sprite_index, p.pos.x as i32, p.pos.y as i32, pattern_name, attrib);
-            sprite_index += 1;
-        }
-
-        // Clean out dead precipitation
-        self.precipitation.retain(|item| {
-            !item.dead
-        });
+        let num_new_clouds = App::run_precipitation(
+            &mut self.precipitation,
+            &mut self.caught_rain,
+            &mut self.death_state,
+            &mut self.player_pos,
+            &mut sprite_index,
+            &mut self.ppu
+        );
 
         // Spawn new clouds if score increased enough
         for _ in 0..num_new_clouds {
